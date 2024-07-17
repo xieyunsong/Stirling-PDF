@@ -1,6 +1,5 @@
 package stirling.software.SPDF.controller.api.security;
 
-import io.github.pixee.security.Filenames;
 import java.io.IOException;
 
 import org.apache.pdfbox.Loader;
@@ -29,6 +28,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import io.github.pixee.security.Filenames;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
@@ -54,32 +54,32 @@ public class SanitizeController {
         boolean removeLinks = request.isRemoveLinks();
         boolean removeFonts = request.isRemoveFonts();
 
-        try (PDDocument document = Loader.loadPDF(inputFile.getBytes())) {
-            if (removeJavaScript) {
-                sanitizeJavaScript(document);
-            }
-
-            if (removeEmbeddedFiles) {
-                sanitizeEmbeddedFiles(document);
-            }
-
-            if (removeMetadata) {
-                sanitizeMetadata(document);
-            }
-
-            if (removeLinks) {
-                sanitizeLinks(document);
-            }
-
-            if (removeFonts) {
-                sanitizeFonts(document);
-            }
-
-            return WebResponseUtils.pdfDocToWebResponse(
-                    document,
-                    Filenames.toSimpleFileName(inputFile.getOriginalFilename()).replaceFirst("[.][^.]+$", "")
-                            + "_sanitized.pdf");
+        PDDocument document = Loader.loadPDF(inputFile.getBytes());
+        if (removeJavaScript) {
+            sanitizeJavaScript(document);
         }
+
+        if (removeEmbeddedFiles) {
+            sanitizeEmbeddedFiles(document);
+        }
+
+        if (removeMetadata) {
+            sanitizeMetadata(document);
+        }
+
+        if (removeLinks) {
+            sanitizeLinks(document);
+        }
+
+        if (removeFonts) {
+            sanitizeFonts(document);
+        }
+
+        return WebResponseUtils.pdfDocToWebResponse(
+                document,
+                Filenames.toSimpleFileName(inputFile.getOriginalFilename())
+                                .replaceFirst("[.][^.]+$", "")
+                        + "_sanitized.pdf");
     }
 
     private void sanitizeJavaScript(PDDocument document) throws IOException {
@@ -139,25 +139,29 @@ public class SanitizeController {
 
         for (PDPage page : allPages) {
             PDResources res = page.getResources();
-
-            // Remove embedded files from the PDF
-            res.getCOSObject().removeItem(COSName.getPDFName("EmbeddedFiles"));
+            if (res != null && res.getCOSObject() != null) {
+                res.getCOSObject().removeItem(COSName.getPDFName("EmbeddedFiles"));
+            }
         }
     }
 
     private void sanitizeMetadata(PDDocument document) {
-        PDMetadata metadata = document.getDocumentCatalog().getMetadata();
-        if (metadata != null) {
-            document.getDocumentCatalog().setMetadata(null);
+        if (document.getDocumentCatalog() != null) {
+            PDMetadata metadata = document.getDocumentCatalog().getMetadata();
+            if (metadata != null) {
+                document.getDocumentCatalog().setMetadata(null);
+            }
         }
     }
 
     private void sanitizeLinks(PDDocument document) throws IOException {
         for (PDPage page : document.getPages()) {
             for (PDAnnotation annotation : page.getAnnotations()) {
-                if (annotation instanceof PDAnnotationLink) {
+                if (annotation != null && annotation instanceof PDAnnotationLink) {
                     PDAction action = ((PDAnnotationLink) annotation).getAction();
-                    if (action instanceof PDActionLaunch || action instanceof PDActionURI) {
+                    if (action != null
+                            && (action instanceof PDActionLaunch
+                                    || action instanceof PDActionURI)) {
                         ((PDAnnotationLink) annotation).setAction(null);
                     }
                 }
@@ -167,7 +171,11 @@ public class SanitizeController {
 
     private void sanitizeFonts(PDDocument document) {
         for (PDPage page : document.getPages()) {
-            page.getResources().getCOSObject().removeItem(COSName.getPDFName("Font"));
+            if (page != null
+                    && page.getResources() != null
+                    && page.getResources().getCOSObject() != null) {
+                page.getResources().getCOSObject().removeItem(COSName.getPDFName("Font"));
+            }
         }
     }
 }

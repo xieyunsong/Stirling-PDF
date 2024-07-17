@@ -1,6 +1,5 @@
 package stirling.software.SPDF.controller.api.security;
 
-import io.github.pixee.security.Filenames;
 import java.awt.Color;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
@@ -26,6 +25,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import io.github.pixee.security.Filenames;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
@@ -83,6 +83,7 @@ public class RedactController {
         if (convertPDFToImage) {
             PDDocument imageDocument = new PDDocument();
             PDFRenderer pdfRenderer = new PDFRenderer(document);
+            pdfRenderer.setSubsamplingAllowed(true);
             for (int page = 0; page < document.getNumberOfPages(); ++page) {
                 BufferedImage bim = pdfRenderer.renderImageWithDPI(page, 300, ImageType.RGB);
                 PDPage newPage = new PDPage(new PDRectangle(bim.getWidth(), bim.getHeight()));
@@ -105,7 +106,8 @@ public class RedactController {
         byte[] pdfContent = baos.toByteArray();
         return WebResponseUtils.bytesToWebResponse(
                 pdfContent,
-                Filenames.toSimpleFileName(file.getOriginalFilename()).replaceFirst("[.][^.]+$", "") + "_redacted.pdf");
+                Filenames.toSimpleFileName(file.getOriginalFilename()).replaceFirst("[.][^.]+$", "")
+                        + "_redacted.pdf");
     }
 
     private void redactFoundText(

@@ -1,6 +1,5 @@
 package stirling.software.SPDF.utils;
 
-import io.github.pixee.security.BoundedLineReader;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
@@ -17,12 +16,15 @@ import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import io.github.pixee.security.BoundedLineReader;
+
 public class ProcessExecutor {
 
     private static final Logger logger = LoggerFactory.getLogger(ProcessExecutor.class);
 
     public enum Processes {
         LIBRE_OFFICE,
+        PDFTOHTML,
         OCR_MY_PDF,
         PYTHON_OPENCV,
         GHOSTSCRIPT,
@@ -44,6 +46,7 @@ public class ProcessExecutor {
                     int semaphoreLimit =
                             switch (key) {
                                 case LIBRE_OFFICE -> 1;
+                                case PDFTOHTML -> 1;
                                 case OCR_MY_PDF -> 2;
                                 case PYTHON_OPENCV -> 8;
                                 case GHOSTSCRIPT -> 16;
@@ -55,9 +58,10 @@ public class ProcessExecutor {
                     long timeoutMinutes =
                             switch (key) {
                                 case LIBRE_OFFICE -> 30;
+                                case PDFTOHTML -> 20;
                                 case OCR_MY_PDF -> 30;
                                 case PYTHON_OPENCV -> 30;
-                                case GHOSTSCRIPT -> 5;
+                                case GHOSTSCRIPT -> 30;
                                 case WEASYPRINT -> 30;
                                 case INSTALL_APP -> 60;
                                 case CALIBRE -> 30;
@@ -110,7 +114,10 @@ public class ProcessExecutor {
                                                         process.getErrorStream(),
                                                         StandardCharsets.UTF_8))) {
                                     String line;
-                                    while ((line = BoundedLineReader.readLine(errorReader, 5_000_000)) != null) {
+                                    while ((line =
+                                                    BoundedLineReader.readLine(
+                                                            errorReader, 5_000_000))
+                                            != null) {
                                         errorLines.add(line);
                                         if (liveUpdates) logger.info(line);
                                     }
@@ -118,7 +125,7 @@ public class ProcessExecutor {
                                     logger.warn(
                                             "Error reader thread was interrupted due to timeout.");
                                 } catch (IOException e) {
-                                    e.printStackTrace();
+                                    logger.error("exception", e);
                                 }
                             });
 
@@ -131,7 +138,10 @@ public class ProcessExecutor {
                                                         process.getInputStream(),
                                                         StandardCharsets.UTF_8))) {
                                     String line;
-                                    while ((line = BoundedLineReader.readLine(outputReader, 5_000_000)) != null) {
+                                    while ((line =
+                                                    BoundedLineReader.readLine(
+                                                            outputReader, 5_000_000))
+                                            != null) {
                                         outputLines.add(line);
                                         if (liveUpdates) logger.info(line);
                                     }
@@ -139,7 +149,7 @@ public class ProcessExecutor {
                                     logger.warn(
                                             "Error reader thread was interrupted due to timeout.");
                                 } catch (IOException e) {
-                                    e.printStackTrace();
+                                    logger.error("exception", e);
                                 }
                             });
 
@@ -162,27 +172,35 @@ public class ProcessExecutor {
             errorReaderThread.join();
             outputReaderThread.join();
 
-            if (!liveUpdates) {
-                if (outputLines.size() > 0) {
-                    String outputMessage = String.join("\n", outputLines);
-                    messages += outputMessage;
+            if (outputLines.size() > 0) {
+                String outputMessage = String.join("\n", outputLines);
+                messages += outputMessage;
+                if (!liveUpdates) {
                     logger.info("Command output:\n" + outputMessage);
                 }
+            }
 
-                if (errorLines.size() > 0) {
-                    String errorMessage = String.join("\n", errorLines);
-                    messages += errorMessage;
+            if (errorLines.size() > 0) {
+                String errorMessage = String.join("\n", errorLines);
+                messages += errorMessage;
+                if (!liveUpdates) {
                     logger.warn("Command error output:\n" + errorMessage);
-                    if (exitCode != 0) {
-                        throw new IOException(
-                                "Command process failed with exit code "
-                                        + exitCode
-                                        + ". Error message: "
-                                        + errorMessage);
-                    }
                 }
-            } else if (exitCode != 0) {
-                throw new IOException("Command process failed with exit code " + exitCode);
+                if (exitCode != 0) {
+                    throw new IOException(
+                            "Command process failed with exit code "
+                                    + exitCode
+                                    + ". Error message: "
+                                    + errorMessage);
+                }
+            }
+
+            if (exitCode != 0) {
+                throw new IOException(
+                        "Command process failed with exit code "
+                                + exitCode
+                                + "\nLogs: "
+                                + messages);
             }
         } finally {
             semaphore.release();

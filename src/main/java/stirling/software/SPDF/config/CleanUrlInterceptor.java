@@ -15,7 +15,15 @@ public class CleanUrlInterceptor implements HandlerInterceptor {
 
     private static final List<String> ALLOWED_PARAMS =
             Arrays.asList(
-                    "lang", "endpoint", "endpoints", "logout", "error", "file", "messageType");
+                    "lang",
+                    "endpoint",
+                    "endpoints",
+                    "logout",
+                    "error",
+                    "erroroauth",
+                    "file",
+                    "messageType",
+                    "infoMessage");
 
     @Override
     public boolean preHandle(
@@ -51,7 +59,8 @@ public class CleanUrlInterceptor implements HandlerInterceptor {
 
                 // Redirect to the URL with only allowed query parameters
                 String redirectUrl = requestURI + "?" + newQueryString;
-                response.sendRedirect(redirectUrl);
+
+                response.sendRedirect(request.getContextPath() + redirectUrl);
                 return false;
             }
         }

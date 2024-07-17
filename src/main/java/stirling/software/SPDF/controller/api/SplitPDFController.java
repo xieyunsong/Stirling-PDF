@@ -1,6 +1,5 @@
 package stirling.software.SPDF.controller.api;
 
-import io.github.pixee.security.Filenames;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -24,10 +23,13 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import io.github.pixee.security.Filenames;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
+import stirling.software.SPDF.model.PdfMetadata;
 import stirling.software.SPDF.model.api.PDFWithPageNums;
+import stirling.software.SPDF.utils.PdfUtils;
 import stirling.software.SPDF.utils.WebResponseUtils;
 
 @RestController
@@ -49,10 +51,17 @@ public class SplitPDFController {
         // open the pdf document
 
         PDDocument document = Loader.loadPDF(file.getBytes());
+        PdfMetadata metadata = PdfUtils.extractMetadataFromPdf(document);
+        int totalPages = document.getNumberOfPages();
+        List<Integer> pageNumbers = request.getPageNumbersList(document, false);
+        System.out.println(
+                pageNumbers.stream().map(String::valueOf).collect(Collectors.joining(",")));
+        if (!pageNumbers.contains(totalPages - 1)) {
+            // Create a mutable ArrayList so we can add to it
+            pageNumbers = new ArrayList<>(pageNumbers);
+            pageNumbers.add(totalPages - 1);
+        }
 
-        List<Integer> pageNumbers = request.getPageNumbersList(document);
-        if (!pageNumbers.contains(document.getNumberOfPages() - 1))
-            pageNumbers.add(document.getNumberOfPages() - 1);
         logger.info(
                 "Splitting PDF into pages: {}",
                 pageNumbers.stream().map(String::valueOf).collect(Collectors.joining(",")));
@@ -65,9 +74,12 @@ public class SplitPDFController {
                 for (int i = previousPageNumber; i <= splitPoint; i++) {
                     PDPage page = document.getPage(i);
                     splitDocument.addPage(page);
-                    logger.debug("Adding page {} to split document", i);
+                    logger.info("Adding page {} to split document", i);
                 }
                 previousPageNumber = splitPoint + 1;
+
+                // Transfer metadata to split pdf
+                PdfUtils.setMetadataToPdf(splitDocument, metadata);
 
                 ByteArrayOutputStream baos = new ByteArrayOutputStream();
                 splitDocument.save(baos);
@@ -84,7 +96,9 @@ public class SplitPDFController {
 
         Path zipFile = Files.createTempFile("split_documents", ".zip");
 
-        String filename = Filenames.toSimpleFileName(file.getOriginalFilename()).replaceFirst("[.][^.]+$", "");
+        String filename =
+                Filenames.toSimpleFileName(file.getOriginalFilename())
+                        .replaceFirst("[.][^.]+$", "");
         try (ZipOutputStream zipOut = new ZipOutputStream(Files.newOutputStream(zipFile))) {
             // loop through the split documents and write them to the zip file
             for (int i = 0; i < splitDocumentsBoas.size(); i++) {
@@ -107,7 +121,7 @@ public class SplitPDFController {
 
         logger.info("Successfully created zip file with split documents: {}", zipFile.toString());
         byte[] data = Files.readAllBytes(zipFile);
-        Files.delete(zipFile);
+        Files.deleteIfExists(zipFile);
 
         // return the Resource in the response
         return WebResponseUtils.bytesToWebResponse(

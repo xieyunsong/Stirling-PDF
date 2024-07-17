@@ -1,6 +1,5 @@
 package stirling.software.SPDF.controller.api.misc;
 
-import io.github.pixee.security.Filenames;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferByte;
 import java.awt.image.DataBufferInt;
@@ -16,6 +15,8 @@ import java.util.zip.ZipOutputStream;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.rendering.PDFRenderer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ModelAttribute;
@@ -32,6 +33,7 @@ import com.google.zxing.PlanarYUVLuminanceSource;
 import com.google.zxing.Result;
 import com.google.zxing.common.HybridBinarizer;
 
+import io.github.pixee.security.Filenames;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
@@ -43,6 +45,7 @@ import stirling.software.SPDF.utils.WebResponseUtils;
 @Tag(name = "Misc", description = "Miscellaneous APIs")
 public class AutoSplitPdfController {
 
+    private static final Logger logger = LoggerFactory.getLogger(AutoSplitPdfController.class);
     private static final String QR_CONTENT = "https://github.com/Stirling-Tools/Stirling-PDF";
     private static final String QR_CONTENT_OLD = "https://github.com/Frooodle/Stirling-PDF";
 
@@ -58,7 +61,7 @@ public class AutoSplitPdfController {
 
         PDDocument document = Loader.loadPDF(file.getBytes());
         PDFRenderer pdfRenderer = new PDFRenderer(document);
-
+        pdfRenderer.setSubsamplingAllowed(true);
         List<PDDocument> splitDocuments = new ArrayList<>();
         List<ByteArrayOutputStream> splitDocumentsBoas = new ArrayList<>();
 
@@ -98,7 +101,9 @@ public class AutoSplitPdfController {
         document.close();
 
         Path zipFile = Files.createTempFile("split_documents", ".zip");
-        String filename = Filenames.toSimpleFileName(file.getOriginalFilename()).replaceFirst("[.][^.]+$", "");
+        String filename =
+                Filenames.toSimpleFileName(file.getOriginalFilename())
+                        .replaceFirst("[.][^.]+$", "");
         byte[] data;
 
         try (ZipOutputStream zipOut = new ZipOutputStream(Files.newOutputStream(zipFile))) {
@@ -113,10 +118,10 @@ public class AutoSplitPdfController {
                 zipOut.closeEntry();
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            logger.error("exception", e);
         } finally {
             data = Files.readAllBytes(zipFile);
-            Files.delete(zipFile);
+            Files.deleteIfExists(zipFile);
         }
 
         return WebResponseUtils.bytesToWebResponse(

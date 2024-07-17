@@ -82,7 +82,7 @@ public class UserAuthenticationFilter extends OncePerRequestFilter {
                 response.setStatus(HttpStatus.UNAUTHORIZED.value());
                 response.getWriter()
                         .write(
-                                "Authentication required. Please provide a X-API-KEY in request header.\nThis is found in Settings -> Account Settings -> API Key\nAlternativly you can disable authentication if this is unexpected");
+                                "Authentication required. Please provide a X-API-KEY in request header.\nThis is found in Settings -> Account Settings -> API Key\nAlternatively you can disable authentication if this is unexpected");
                 return;
             }
         }
@@ -101,8 +101,10 @@ public class UserAuthenticationFilter extends OncePerRequestFilter {
             contextPath + "/images/",
             contextPath + "/public/",
             contextPath + "/css/",
+            contextPath + "/fonts/",
             contextPath + "/js/",
             contextPath + "/pdfjs/",
+            contextPath + "/pdfjs-legacy/",
             contextPath + "/api/v1/info/status",
             contextPath + "/site.webmanifest"
         };
