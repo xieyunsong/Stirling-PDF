@@ -11,6 +11,7 @@
 - [阿里云优惠](https://www.aliyun.com/minisite/goods?userCode=mrbq2fmx)
 - [腾讯云优惠](https://curl.qcloud.com/AH1W995S)
 - [京东云优惠](https://3.cn/-20foTOh)
+- [阿里云优惠](https://www.aliyun.com/minisite/goods?userCode=mrbq2fmx)
 
 [![Deploy to DO](https://www.deploytodo.com/do-btn-blue.svg)](https://cloud.digitalocean.com/apps/new?repo=https://github.com/Stirling-Tools/Stirling-PDF/tree/digitalOcean&refcode=c3210994b1af)
 
